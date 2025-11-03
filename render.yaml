@@ -85,7 +85,7 @@ services:
   - type: redis
     name: pr-review-bot-redis
     ipAllowList: []
-    plan: starter
+    plan: free  # Updated from 'starter' to 'free'
     maxmemoryPolicy: allkeys-lru
 
 # Database
