@@ -45,7 +45,7 @@ CodeInsight/
 ## 🚀 Features Implemented
 
 ### ✨ Core Features
-- [x] **FastAPI Webhook Server** - Receives GitHub PR events
+- [x] **FastAPI API Server** - Receives requests from GitHub Actions
 - [x] **Celery Async Processing** - Non-blocking review tasks
 - [x] **GitHub App Authentication** - Secure JWT-based auth
 - [x] **Claude Sonnet 4.5 Integration** - AI-powered code reviews
@@ -53,8 +53,8 @@ CodeInsight/
 - [x] **Vector Embeddings** - Semantic code search with pgvector
 - [x] **RAG Pipeline** - Codebase-aware context retrieval
 - [x] **Inline Comments** - GitHub PR review comments
-- [x] **Auto Review** - Automatic reviews on PR events
-- [x] **Manual Trigger** - `/review` command support
+- [x] **Auto Review** - Automatic reviews on PR events via GitHub Actions
+- [x] **Manual Trigger** - `/review` command support via GitHub Actions
 
 ### 🗄️ Database & Storage
 - [x] PostgreSQL with pgvector extension
@@ -134,18 +134,19 @@ docker-compose up -d
 ## 🎯 What It Does
 
 When a PR is opened or updated:
-1. **Receives webhook** from GitHub
-2. **Enqueues review task** to Celery
-3. **Fetches PR diff** from GitHub API
-4. **Retrieves context** using RAG from codebase embeddings
-5. **Gets user memory** for personalized reviews
-6. **Generates review** using Claude Sonnet 4.5
-7. **Posts comments** as inline PR review
-8. **Stores history** for future learning
+1. **GitHub Actions workflow triggers** on PR event
+2. **Calls API** with Bearer token authentication
+3. **Enqueues review task** to Celery
+4. **Fetches PR diff** from GitHub API
+5. **Retrieves context** using RAG from codebase embeddings
+6. **Gets user memory** for personalized reviews
+7. **Generates review** using Claude Sonnet 4.5
+8. **Posts comments** as inline PR review
+9. **Stores history** for future learning
 
 ## 🔐 Security Features
 
-- [x] HMAC SHA-256 webhook signature verification
+- [x] Bearer token authentication for GitHub Actions
 - [x] GitHub App JWT authentication
 - [x] Environment variable configuration
 - [x] Secure private key handling
@@ -157,7 +158,7 @@ When a PR is opened or updated:
 - **CPU**: 2+ cores recommended
 - **RAM**: 4GB minimum, 8GB recommended
 - **Disk**: 2GB for Docker images + data
-- **Network**: Webhook endpoint must be publicly accessible
+- **Network**: GitHub Actions calls your API (can be local with ngrok)
 
 ### Production (Render Free Tier)
 - Web Service: 512MB RAM
@@ -179,8 +180,9 @@ If you encounter issues:
 1. Check logs: `docker-compose logs -f`
 2. Verify environment variables in `.env`
 3. Ensure GitHub App is installed on repo
-4. Check webhook deliveries in GitHub App settings
-5. Review documentation in `/docs`
+4. Check GitHub Actions workflow logs in the Actions tab
+5. Verify repository secrets are set correctly
+6. Review documentation in `/docs`
 
 ## 🚢 Deployment Options
 

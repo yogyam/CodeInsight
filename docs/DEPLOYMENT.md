@@ -35,7 +35,6 @@ Render provides the easiest deployment with automatic setup from `render.yaml`.
    
    In Render dashboard, add these secret variables:
    - `GITHUB_APP_ID`
-   - `GITHUB_WEBHOOK_SECRET`
    - `ANTHROPIC_API_KEY`
    - `API_SECRET_KEY`
 
@@ -50,8 +49,10 @@ Render provides the easiest deployment with automatic setup from `render.yaml`.
    - Wait for deployment to complete
    - Note your service URL (e.g., `https://your-app.onrender.com`)
 
-5. **Update GitHub App Webhook**
-   - Update webhook URL to: `https://your-app.onrender.com/webhook`
+5. **Update GitHub Repository Secrets**
+   - Go to your repository Settings → Secrets → Actions
+   - Update `REVIEW_API_URL` to: `https://your-app.onrender.com`
+   - Ensure `REVIEW_API_TOKEN` matches your `API_SECRET_KEY`
 
 ### Database Setup on Render
 
@@ -146,7 +147,7 @@ aws ecs create-service \
    - Create ALB in AWS Console
    - Configure target group for port 8000
    - Set up health check: `/health`
-   - Update GitHub webhook URL
+   - Update GitHub repository secrets with ALB URL
 
 ---
 
@@ -338,9 +339,9 @@ docker stats
 
 After deploying to any platform:
 
-- [ ] Update GitHub App webhook URL
-- [ ] Test webhook delivery in GitHub App settings
-- [ ] Create a test PR to verify bot works
+- [ ] Update GitHub repository secrets (REVIEW_API_URL, REVIEW_API_TOKEN)
+- [ ] Test GitHub Actions workflow with a test PR
+- [ ] Verify bot posts review comments
 - [ ] Set up monitoring/alerting
 - [ ] Configure backup for database
 - [ ] Set up log aggregation
@@ -355,7 +356,9 @@ Required variables for all platforms:
 # GitHub
 GITHUB_APP_ID=
 GITHUB_APP_PRIVATE_KEY_PATH=
-GITHUB_WEBHOOK_SECRET=
+
+# API Security
+API_SECRET_KEY=
 
 # LLM
 ANTHROPIC_API_KEY=
@@ -398,10 +401,11 @@ To handle more reviews:
 
 ### Common Issues
 
-1. **Webhook timeouts**: Increase timeout in platform settings
+1. **API request timeouts**: Increase timeout in platform settings
 2. **Database connection pool exhausted**: Increase pool size in DATABASE_URL
 3. **Redis memory issues**: Configure eviction policy
 4. **High API latency**: Scale horizontally or increase resources
+5. **GitHub Actions failing**: Check repository secrets are set correctly
 
 For platform-specific issues, check the logs:
 - Render: Dashboard → Logs

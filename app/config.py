@@ -6,7 +6,6 @@ class Settings(BaseSettings):
     # GitHub App
     github_app_id: str
     github_app_private_key_path: str
-    github_webhook_secret: str
     
     # LLM
     anthropic_api_key: str

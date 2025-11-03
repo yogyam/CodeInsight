@@ -10,7 +10,7 @@ services:
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY_PATH
         value: /app/github-app-private-key.pem
-      - key: GITHUB_WEBHOOK_SECRET
+      - key: API_SECRET_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false
@@ -55,7 +55,7 @@ services:
         sync: false
       - key: GITHUB_APP_PRIVATE_KEY_PATH
         value: /app/github-app-private-key.pem
-      - key: GITHUB_WEBHOOK_SECRET
+      - key: API_SECRET_KEY
         sync: false
       - key: ANTHROPIC_API_KEY
         sync: false

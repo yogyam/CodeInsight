@@ -14,12 +14,14 @@ An intelligent, open-source GitHub pull request review bot with persistent user-
 ## 🏗️ Architecture
 
 ```
-GitHub PR → FastAPI Webhook → Celery Queue → Claude Sonnet 4.5 → Review Comments
-                ↓                                    ↑
-              Redis                          Supabase (Postgres + pgvector)
-                                                     ↓
-                                            Persistent Memory & Embeddings
+GitHub PR Event → GitHub Actions → FastAPI API → Celery Queue → Claude Sonnet 4.5 → Review Comments
+                                         ↓                              ↑
+                                       Redis                  Supabase (Postgres + pgvector)
+                                                                         ↓
+                                                              Persistent Memory & Embeddings
 ```
+
+**Key Change:** Uses GitHub Actions instead of webhooks - simpler, more secure, easier to test locally!
 
 ## 🚀 Quick Start
 
@@ -46,7 +48,9 @@ Edit `.env` with your credentials:
 # GitHub App
 GITHUB_APP_ID=your_app_id
 GITHUB_APP_PRIVATE_KEY_PATH=github-app-private-key.pem
-GITHUB_WEBHOOK_SECRET=your_webhook_secret
+
+# API Security (for GitHub Actions)
+API_SECRET_KEY=generate_with_openssl_rand_hex_32
 
 # LLM
 ANTHROPIC_API_KEY=your_anthropic_api_key
@@ -72,18 +76,23 @@ Services will be available at:
 - **API**: http://localhost:8000
 - **Health Check**: http://localhost:8000/health
 
-### 5. Configure GitHub App Webhook
+### 5. Set Up GitHub Actions
 
-In your GitHub App settings:
-- **Webhook URL**: `https://your-domain.com/webhook`
-- **Webhook Secret**: (same as in `.env`)
-- **Permissions**:
-  - Pull requests: Read & write
-  - Contents: Read
-  - Metadata: Read
-- **Subscribe to events**:
-  - Pull request
-  - Issue comment
+The GitHub Actions workflows are already in `.github/workflows/`. You need to:
+
+1. **Add Repository Secrets** (Settings → Secrets → Actions):
+   - `REVIEW_API_URL` = Your API URL (e.g., `https://your-app.onrender.com` or ngrok URL for local testing)
+   - `REVIEW_API_TOKEN` = Same value as `API_SECRET_KEY` from `.env`
+
+2. **Get your GitHub App Installation ID** and update it in both workflow files:
+   - See [docs/GITHUB_ACTIONS_SETUP.md](docs/GITHUB_ACTIONS_SETUP.md) for detailed instructions
+
+3. **Configure GitHub App**:
+   - **Webhook**: ❌ Disabled (not needed!)
+   - **Permissions**:
+     - Pull requests: Read & write
+     - Contents: Read
+     - Metadata: Read
 
 ## 📖 Usage
 
@@ -181,7 +190,7 @@ psql $DATABASE_URL < init.sql
 3. Fill in:
    - **Name**: Your bot name
    - **Homepage URL**: Your repo or website
-   - **Webhook URL**: Your deployed API URL + `/webhook`
+   - Update repository secret `REVIEW_API_URL` to production URL
    - **Webhook secret**: Generate a secure secret
 4. Set permissions (see Quick Start section)
 5. Generate a private key (download `.pem` file)
