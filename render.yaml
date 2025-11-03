@@ -3,6 +3,7 @@ services:
   - type: web
     name: pr-review-bot-api
     env: docker
+    plan: free  # Free tier
     dockerfilePath: ./Dockerfile
     dockerContext: .
     envVars:
@@ -47,6 +48,7 @@ services:
   - type: worker
     name: pr-review-bot-worker
     env: docker
+    plan: free  # Free tier
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: celery -A app.celery_app worker --loglevel=info
