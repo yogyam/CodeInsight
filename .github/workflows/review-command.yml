@@ -1,0 +1,48 @@
+name: Manual Review Command
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  manual-review:
+    # Only run on PR comments that start with /review
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '/review')
+    
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Get Installation ID
+        id: get_installation
+        run: |
+          # This is a placeholder - you'll need to get your actual installation_id
+          # from the GitHub App installation
+          echo "installation_id=YOUR_INSTALLATION_ID" >> $GITHUB_OUTPUT
+      
+      - name: Extract PR Number
+        id: pr_number
+        run: |
+          echo "number=${{ github.event.issue.number }}" >> $GITHUB_OUTPUT
+      
+      - name: Trigger Manual Review
+        run: |
+          curl -X POST "${{ secrets.REVIEW_API_URL }}/api/review/command" \
+            -H "Authorization: Bearer ${{ secrets.REVIEW_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "owner": "${{ github.repository_owner }}",
+              "repo": "${{ github.event.repository.name }}",
+              "pr_number": ${{ steps.pr_number.outputs.number }},
+              "installation_id": ${{ steps.get_installation.outputs.installation_id }},
+              "comment_body": "${{ github.event.comment.body }}"
+            }'
+      
+      - name: Review Status
+        if: success()
+        run: echo "✅ Manual review triggered successfully"
+      
+      - name: Review Failed
+        if: failure()
+        run: echo "❌ Failed to trigger manual review"

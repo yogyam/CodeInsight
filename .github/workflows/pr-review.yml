@@ -1,0 +1,37 @@
+name: AI PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Get Installation ID
+        id: get_installation
+        run: |
+          # This is a placeholder - you'll need to get your actual installation_id
+          # from the GitHub App installation
+          echo "installation_id=YOUR_INSTALLATION_ID" >> $GITHUB_OUTPUT
+      
+      - name: Trigger AI Review
+        run: |
+          curl -X POST "${{ secrets.REVIEW_API_URL }}/api/review" \
+            -H "Authorization: Bearer ${{ secrets.REVIEW_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "owner": "${{ github.repository_owner }}",
+              "repo": "${{ github.event.repository.name }}",
+              "pr_number": ${{ github.event.pull_request.number }},
+              "installation_id": ${{ steps.get_installation.outputs.installation_id }}
+            }'
+      
+      - name: Review Status
+        if: success()
+        run: echo "✅ AI review triggered successfully"
+      
+      - name: Review Failed
+        if: failure()
+        run: echo "❌ Failed to trigger AI review"

@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Request, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import JSONResponse
-import hmac
-import hashlib
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from typing import Optional
 from app.config import get_settings
 from app.database import init_db
@@ -12,12 +12,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
+security = HTTPBearer()
 
 app = FastAPI(
     title="Persistent Memory PR Review Bot",
-    description="GitHub PR review bot with persistent memory",
-    version="1.0.0"
+    description="GitHub PR review bot with persistent memory (GitHub Actions triggered)",
+    version="2.0.0"
 )
+
+
+class ReviewRequest(BaseModel):
+    """Request model for PR review trigger."""
+    owner: str
+    repo: str
+    pr_number: int
+    installation_id: int
+
+
+class ReviewCommandRequest(BaseModel):
+    """Request model for manual review command."""
+    owner: str
+    repo: str
+    pr_number: int
+    installation_id: int
+    comment_body: str
 
 
 @app.on_event("startup")
@@ -27,18 +45,11 @@ async def startup_event():
     logger.info("Database initialized")
 
 
-def verify_github_signature(payload: bytes, signature: str) -> bool:
-    """Verify GitHub webhook signature."""
-    if not signature:
-        return False
-    
-    expected_signature = "sha256=" + hmac.new(
-        settings.github_webhook_secret.encode(),
-        payload,
-        hashlib.sha256
-    ).hexdigest()
-    
-    return hmac.compare_digest(expected_signature, signature)
+def verify_api_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> bool:
+    """Verify Bearer token from GitHub Actions."""
+    if credentials.credentials != settings.api_secret_key:
+        raise HTTPException(status_code=401, detail="Invalid API token")
+    return True
 
 
 @app.get("/")
@@ -47,7 +58,7 @@ async def root():
     return {
         "status": "healthy",
         "service": "Persistent Memory PR Review Bot",
-        "version": "1.0.0"
+        "version": "2.0.0"
     }
 
 
@@ -61,87 +72,68 @@ async def health_check():
     }
 
 
-@app.post("/webhook")
-async def github_webhook(
-    request: Request,
-    x_github_event: Optional[str] = Header(None),
-    x_hub_signature_256: Optional[str] = Header(None)
+@app.post("/api/review")
+async def trigger_review(
+    request: ReviewRequest,
+    authorized: bool = Depends(verify_api_token)
 ):
     """
-    Handle GitHub webhook events.
+    Trigger a PR review (called by GitHub Actions).
     
-    Supported events:
-    - pull_request (opened, synchronize, reopened)
-    - issue_comment (created) - for /review commands
+    This endpoint is called by the pr-review.yml workflow
+    when a PR is opened, synchronized, or reopened.
     """
-    # Read payload
-    payload = await request.body()
+    logger.info(f"Review requested for {request.owner}/{request.repo}#{request.pr_number}")
     
-    # Verify signature
-    if not verify_github_signature(payload, x_hub_signature_256):
-        logger.warning("Invalid webhook signature")
-        raise HTTPException(status_code=401, detail="Invalid signature")
+    # Build pr_data for task
+    pr_data = {
+        "pr_number": request.pr_number,
+        "repository": f"{request.owner}/{request.repo}",
+        "repository_id": f"{request.owner}/{request.repo}",  # Simplified
+        "installation_id": request.installation_id,
+    }
     
-    # Parse JSON payload
-    event_data = await request.json()
+    # Enqueue review task
+    task = process_pr_review.delay(pr_data)
+    logger.info(f"Enqueued PR review task: {task.id}")
     
-    logger.info(f"Received webhook event: {x_github_event}")
+    return JSONResponse({
+        "status": "queued",
+        "task_id": task.id,
+        "pr_number": pr_data["pr_number"]
+    })
+
+
+@app.post("/api/review/command")
+async def trigger_review_command(
+    request: ReviewCommandRequest,
+    authorized: bool = Depends(verify_api_token)
+):
+    """
+    Trigger a manual review via /review command (called by GitHub Actions).
     
-    # Handle pull_request events
-    if x_github_event == "pull_request":
-        action = event_data.get("action")
-        
-        if action in ["opened", "synchronize", "reopened"] and settings.auto_review_enabled:
-            pr_data = {
-                "pr_number": event_data["pull_request"]["number"],
-                "repository": event_data["repository"]["full_name"],
-                "repository_id": str(event_data["repository"]["id"]),
-                "installation_id": event_data["installation"]["id"],
-                "author": event_data["pull_request"]["user"]["login"],
-                "head_sha": event_data["pull_request"]["head"]["sha"],
-                "base_sha": event_data["pull_request"]["base"]["sha"],
-            }
-            
-            # Enqueue review task
-            task = process_pr_review.delay(pr_data)
-            logger.info(f"Enqueued PR review task: {task.id}")
-            
-            return JSONResponse({
-                "status": "queued",
-                "task_id": task.id,
-                "pr_number": pr_data["pr_number"]
-            })
+    This endpoint is called by the review-command.yml workflow
+    when a user comments /review on a PR.
+    """
+    logger.info(f"Manual review requested for {request.owner}/{request.repo}#{request.pr_number}")
     
-    # Handle issue_comment events (for /review command)
-    elif x_github_event == "issue_comment":
-        action = event_data.get("action")
-        comment_body = event_data.get("comment", {}).get("body", "").strip()
-        
-        if action == "created" and comment_body.startswith(settings.review_command):
-            # Check if comment is on a PR
-            if "pull_request" in event_data.get("issue", {}):
-                pr_url = event_data["issue"]["pull_request"]["url"]
-                
-                review_data = {
-                    "pr_number": event_data["issue"]["number"],
-                    "repository": event_data["repository"]["full_name"],
-                    "repository_id": str(event_data["repository"]["id"]),
-                    "installation_id": event_data["installation"]["id"],
-                    "commenter": event_data["comment"]["user"]["login"],
-                }
-                
-                # Enqueue review command task
-                task = process_review_command.delay(review_data)
-                logger.info(f"Enqueued review command task: {task.id}")
-                
-                return JSONResponse({
-                    "status": "queued",
-                    "task_id": task.id,
-                    "pr_number": review_data["pr_number"]
-                })
+    review_data = {
+        "pr_number": request.pr_number,
+        "repository": f"{request.owner}/{request.repo}",
+        "repository_id": f"{request.owner}/{request.repo}",
+        "installation_id": request.installation_id,
+        "commenter": "github-actions",  # From GitHub Actions
+    }
     
-    # Event not handled
-    return JSONResponse({"status": "ignored", "event": x_github_event})
+    # Enqueue review command task
+    task = process_review_command.delay(review_data)
+    logger.info(f"Enqueued review command task: {task.id}")
+    
+    return JSONResponse({
+        "status": "queued",
+        "task_id": task.id,
+        "pr_number": review_data["pr_number"]
+    })
 
 
 @app.get("/task/{task_id}")
