@@ -93,5 +93,5 @@ databases:
   - name: pr-review-bot-db
     databaseName: pr_review_bot
     user: pr_review_bot
-    plan: starter
+    plan: free  # Updated from legacy 'starter' plan
     postgresMajorVersion: 15
