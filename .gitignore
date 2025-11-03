@@ -55,7 +55,13 @@ celerybeat.pid
 
 # Database
 *.db
-*.sqlite3
+*.sqlite
+
+# Private/Internal Documentation (not pushed to GitHub)
+WEBHOOK_TO_ACTIONS_MIGRATION_STATUS.md
+# Add any other private docs here, e.g.:
+# NOTES.md
+# PRIVATE_TODO.md3
 
 # Testing
 .pytest_cache/
